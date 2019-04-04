@@ -38,7 +38,12 @@ class Cache
             $oReverseProxy->setFlush();
             $oReverseProxy->execute();
         }
-        $this->clearNginxProxyCache();
+        if (class_exists('\OxidEsales\NginxModule\Cache\Backend', false)) {
+            $invalidatorRuleSet = \OxidEsales\Eshop\Core\Registry::get(\OxidEsales\NginxModule\Cache\InvalidatorRuleSet::class);
+            $invalidatorRuleSet->addRule(oxNew(\OxidEsales\NginxModule\Cache\InvalidatorRule\All::class, 'flush'));
+            $cache = \OxidEsales\Eshop\Core\Registry::get(\OxidEsales\NginxModule\Cache\Backend::class);
+            $cache->execute();
+        }
     }
 
     /**
@@ -64,7 +69,7 @@ class Cache
 
         $files = array_diff(scandir($dir), $itemsToIgnore);
         foreach ($files as $file) {
-            if (is_dir("$dir/$file")) {
+            if (is_dir("$dir/$file") && ('smarty' !== $file)) {
                 $this->removeTemporaryDirectory(
                     "$dir/$file",
                     $file == 'smarty' ? $rmBaseDir : true
@@ -75,36 +80,6 @@ class Cache
         }
         if ($rmBaseDir) {
             @rmdir($dir);
-        }
-    }
-
-    /**
-     * Test helper to clear nginx cache
-     */
-    protected function clearNginxProxyCache()
-    {
-        $facts = new \OxidEsales\Facts\Facts();
-        if (!$facts->isEnterprise()) {
-            return;
-        }
-
-        $testModulePaths = $this->getTestConfig()->getPartialModulePaths();
-        if (in_array('oe/nginx', $testModulePaths)) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $this->getTestConfig()->getShopUrl() . 'nginx-clear-cache');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 31);
-            curl_setopt($ch, CURLOPT_HTTPGET, 1);
-            curl_setopt($ch, CURLOPT_USERAGENT, "OXID-TEST");
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, "all=true");
-            $result = curl_exec($ch);
-
-            $databaseMetaDataHandler = oxNew(\OxidEsales\Eshop\Core\DbMetaDataHandler::class);
-            if ($databaseMetaDataHandler->tableExists(\OxidEsales\NginxModule\Cache\Backend::NGINX_HASH_TABLE)) {
-                $query = 'TRUNCATE table ' . \OxidEsales\NginxModule\Cache\Backend::NGINX_HASH_TABLE;
-                \OxidEsales\Eshop\Core\DatabaseProvider::getDb()->execute($query);
-            }
         }
     }
 }

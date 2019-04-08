@@ -1059,34 +1059,4 @@ abstract class UnitTestCase extends BaseTestCase
 
         return $databaseHelper->existsView($tableName);
     }
-
-    /**
-     * Test helper
-     */
-    protected function clearProxyCache()
-    {
-        $facts = new \OxidEsales\Facts\Facts();
-        if (!$facts->isEnterprise()) {
-            return;
-        }
-
-        $testModulePaths = $this->getTestConfig()->getPartialModulePaths();
-        if (in_array('oe/nginx', $testModulePaths)) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $this->getTestConfig()->getShopUrl() . 'nginx-clear-cache');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 31);
-            curl_setopt($ch, CURLOPT_HTTPGET, 1);
-            curl_setopt($ch, CURLOPT_USERAGENT, "OXID-TEST");
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, "all=true");
-            $result = curl_exec($ch);
-
-            $databaseMetaDataHandler = oxNew(\OxidEsales\Eshop\Core\DbMetaDataHandler::class);
-            if ($databaseMetaDataHandler->tableExists(\OxidEsales\NginxModule\Cache\Backend::NGINX_HASH_TABLE) ) {
-                $query = 'TRUNCATE table ' . \OxidEsales\NginxModule\Cache\Backend::NGINX_HASH_TABLE;
-                \OxidEsales\Eshop\Core\DatabaseProvider::getDb()->execute($query);
-            }
-        }
-    }
 }
